@@ -1,0 +1,194 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: #0f0f0f;
+    color: #ffffff;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+
+  #root {
+    min-height: 100vh;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #1a1a1a;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #444;
+    border-radius: 2px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #7c3aed;
+  }
+}
+
+@layer components {
+  /* Shimmer skeleton */
+  .skeleton {
+    @apply bg-gray-800 rounded animate-pulse;
+  }
+
+  .shimmer {
+    background: linear-gradient(90deg, #1a1a1a 25%, #2a2a2a 50%, #1a1a1a 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    background: linear-gradient(135deg, #7c3aed, #2563eb);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Subscribe button */
+  .btn-subscribe {
+    @apply bg-hotstar-gradient text-white font-semibold px-5 py-2 rounded-full text-sm transition-all duration-200;
+    background: linear-gradient(135deg, #7c3aed, #2563eb);
+  }
+  .btn-subscribe:hover {
+    @apply opacity-90 scale-105;
+    box-shadow: 0 0 20px rgba(124, 58, 237, 0.4);
+  }
+
+  /* Play button */
+  .btn-play {
+    @apply flex items-center gap-2 bg-white text-black font-bold px-6 py-3 rounded-lg text-base transition-all duration-200;
+  }
+  .btn-play:hover {
+    @apply bg-gray-200 scale-105;
+  }
+
+  /* More info button */
+  .btn-info {
+    @apply flex items-center gap-2 bg-white/20 backdrop-blur-sm text-white font-semibold px-6 py-3 rounded-lg text-base transition-all duration-200 border border-white/30;
+  }
+  .btn-info:hover {
+    @apply bg-white/30;
+  }
+
+  /* Content card */
+  .content-card {
+    @apply relative overflow-hidden rounded-lg cursor-pointer transition-all duration-300;
+  }
+  .content-card:hover {
+    @apply scale-105 z-10;
+    box-shadow: 0 0 30px rgba(124, 58, 237, 0.3);
+  }
+
+  /* Nav link */
+  .nav-link {
+    @apply text-gray-300 hover:text-white text-sm font-medium transition-colors duration-200 cursor-pointer;
+  }
+  .nav-link.active {
+    @apply text-white;
+  }
+
+  /* Genre badge */
+  .genre-badge {
+    @apply px-3 py-1 rounded-full text-xs font-medium bg-white/10 text-gray-300 border border-white/20;
+  }
+
+  /* Rating badge */
+  .rating-badge {
+    @apply px-2 py-0.5 rounded text-xs font-bold;
+  }
+
+  /* Section title */
+  .section-title {
+    @apply text-xl md:text-2xl font-bold text-white mb-4;
+  }
+}
+
+/* Swiper overrides */
+.swiper-button-prev,
+.swiper-button-next {
+  color: white !important;
+  background: rgba(0, 0, 0, 0.7) !important;
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 50% !important;
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+.swiper-button-prev::after,
+.swiper-button-next::after {
+  font-size: 14px !important;
+  font-weight: 900 !important;
+}
+
+.swiper-button-prev:hover,
+.swiper-button-next:hover {
+  background: rgba(124, 58, 237, 0.8) !important;
+}
+
+.swiper-pagination-bullet {
+  background: rgba(255, 255, 255, 0.5) !important;
+}
+
+.swiper-pagination-bullet-active {
+  background: #7c3aed !important;
+}
+
+/* Hero gradient overlay */
+.hero-overlay {
+  background: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0.95) 0%,
+    rgba(0, 0, 0, 0.7) 40%,
+    rgba(0, 0, 0, 0.2) 70%,
+    transparent 100%
+  );
+}
+
+.hero-overlay-bottom {
+  background: linear-gradient(
+    to top,
+    #0f0f0f 0%,
+    rgba(15, 15, 15, 0.6) 40%,
+    transparent 100%
+  );
+}
+
+/* Input styles */
+input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px #1a1a2e inset;
+  -webkit-text-fill-color: white;
+}
+
+/* Page transitions */
+.page-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms, transform 300ms;
+}
