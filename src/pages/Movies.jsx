@@ -94,7 +94,7 @@ export default function Movies() {
             }`}
             style={
               activeTab === tab.key
-                ? { background: 'linear-gradient(135deg, #7c3aed, #2563eb)' }
+                ? { background: 'linear-gradient(92.7deg, #1492ff 0%, #0860c4 50%, #eb0066 100%)' }
                 : {}
             }
           >
@@ -122,7 +122,7 @@ export default function Movies() {
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setSelectedGenre(null)}
-            className={`genre-badge transition-all ${!selectedGenre ? 'bg-purple-600/30 border-purple-500 text-purple-300' : ''}`}
+            className={`genre-badge transition-all ${!selectedGenre ? 'bg-blue-600/30 border-blue-500 text-blue-300' : ''}`}
           >
             All
           </button>
@@ -130,8 +130,8 @@ export default function Movies() {
             <button
               key={g.id}
               onClick={() => setSelectedGenre(g)}
-              className={`genre-badge transition-all hover:border-purple-400 hover:text-white ${
-                selectedGenre?.id === g.id ? 'bg-purple-600/30 border-purple-500 text-purple-300' : ''
+              className={`genre-badge transition-all hover:border-blue-400 hover:text-white ${
+                selectedGenre?.id === g.id ? 'bg-blue-600/30 border-blue-500 text-blue-300' : ''
               }`}
             >
               {g.name}

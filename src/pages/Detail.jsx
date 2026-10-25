@@ -17,7 +17,7 @@ import { PROFILE_SIZES, IMAGE_BASE_URL } from '../api/config';
 export default function Detail() {
   const { type, id } = useParams();
   const navigate = useNavigate();
-  const { toggleWatchlist, isInWatchlist } = useApp();
+  const { toggleWatchlist, isInWatchlist, requireAuth } = useApp();
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -140,7 +140,7 @@ export default function Detail() {
             {/* Actions */}
             <div className="flex flex-wrap items-center gap-3 mb-6">
               {trailerKey ? (
-                <button onClick={() => setShowTrailer(true)} className="btn-play">
+                <button onClick={() => requireAuth(() => setShowTrailer(true))} className="btn-play">
                   <BsPlayFill size={22} />
                   Watch Trailer
                 </button>
@@ -154,7 +154,7 @@ export default function Detail() {
                 onClick={() => toggleWatchlist({ ...details, media_type: type })}
                 className="btn-info gap-2"
               >
-                {inWatchlist ? <BsBookmarkFill size={18} className="text-purple-400" /> : <BsBookmark size={18} />}
+                {inWatchlist ? <BsBookmarkFill size={18} className="text-blue-400" /> : <BsBookmark size={18} />}
                 {inWatchlist ? 'Saved' : 'Save'}
               </button>
             </div>
@@ -215,7 +215,7 @@ export default function Detail() {
 
       {/* Trailer modal */}
       {showTrailer && trailerKey && (
-        <VideoModal videoKey={trailerKey} onClose={() => setShowTrailer(false)} />
+        <VideoModal videoKey={trailerKey} item={{ ...details, media_type: type }} onClose={() => setShowTrailer(false)} />
       )}
     </main>
   );

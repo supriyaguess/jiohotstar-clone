@@ -1,4 +1,8 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { api } from '../api/client';
+import { useApp } from '../context/AppContext';
+import GuestPrompt from '../components/ui/GuestPrompt';
 import HeroBanner from '../components/ui/HeroBanner';
 import ContentRow from '../components/ui/ContentRow';
 import {
@@ -12,6 +16,8 @@ import {
 } from '../api/tmdb';
 
 export default function Home() {
+  const { user } = useApp();
+  const [continueWatching, setContinueWatching] = useState([]);
   const [trending, setTrending] = useState([]);
   const [popularMovies, setPopularMovies] = useState([]);
   const [topRatedMovies, setTopRatedMovies] = useState([]);
@@ -59,6 +65,12 @@ export default function Home() {
     fetchAll();
   }, []);
 
+  // "Continue Watching" comes from the backend and only exists for signed-in users.
+  useEffect(() => {
+    if (!user) return;
+    api.get('/history').then((res) => setContinueWatching(res.data)).catch(() => {});
+  }, [user]);
+
   return (
     <main className="min-h-screen bg-hotstar-bg">
       {/* Hero Banner */}
@@ -66,6 +78,7 @@ export default function Home() {
 
       {/* Content rows */}
       <div className="pt-6">
+        {user && <ContentRow title="Continue Watching" items={continueWatching} />}
         <ContentRow
           title="Trending This Week"
           items={trending}
@@ -110,28 +123,27 @@ export default function Home() {
         />
       </div>
 
+      <GuestPrompt />
+
       {/* Subscribe Banner */}
-      {!loading && (
+      {!loading && !user && (
         <div className="mx-4 sm:mx-8 lg:mx-12 mb-16 rounded-2xl overflow-hidden relative">
           <div
             className="p-8 sm:p-12 text-center"
             style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e3a8a 100%)' }}
           >
-            <p className="text-purple-300 text-sm font-semibold mb-2 uppercase tracking-widest">
-              Limited Time Offer
+            <p className="text-blue-300 text-sm font-semibold mb-2 uppercase tracking-widest">
+              Free with an account
             </p>
             <h2 className="text-2xl sm:text-4xl font-black text-white mb-3">
               Unlimited Entertainment
             </h2>
             <p className="text-gray-300 text-sm sm:text-base mb-6 max-w-xl mx-auto">
-              Watch movies, shows, live sports and more. No ads. Cancel anytime.
+              Sign up to save your watchlist and pick up where you left off on any device.
             </p>
-            <a
-              href="/signup"
-              className="inline-block btn-subscribe px-8 py-3 text-base font-bold"
-            >
-              Start Free Trial →
-            </a>
+            <Link to="/signup" className="inline-block btn-subscribe px-8 py-3 text-base font-bold">
+              Sign up free →
+            </Link>
           </div>
         </div>
       )}

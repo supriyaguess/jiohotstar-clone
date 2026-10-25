@@ -1,12 +1,44 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { AiOutlineClose } from 'react-icons/ai';
+import { api } from '../../api/client';
+import { useApp } from '../../context/AppContext';
+import { getTitle } from '../../utils/helpers';
+
+const SAVE_EVERY_SECONDS = 15;
 
 /**
  * YouTube trailer modal overlay
  * @param {string} videoKey - YouTube video key
  * @param {Function} onClose - close handler
+ * @param {object} [item] - TMDB item; when given and the user is signed in, watch time is saved to history
  */
-export default function VideoModal({ videoKey, onClose }) {
+export default function VideoModal({ videoKey, onClose, item }) {
+  const { user } = useApp();
+  const watched = useRef(0);
+
+  // Count seconds with the modal open and save to "Continue Watching" every 15s and on close.
+  useEffect(() => {
+    if (!user || !item || !videoKey) return;
+    const save = () => {
+      if (watched.current < 3) return;
+      api.put('/history', {
+        id: item.id,
+        media_type: item.media_type,
+        title: getTitle(item),
+        poster_path: item.poster_path ?? null,
+        backdrop_path: item.backdrop_path ?? null,
+        progress_seconds: watched.current,
+        duration_seconds: item.runtime ? item.runtime * 60 : null,
+      }).catch(() => {});
+    };
+    const timer = setInterval(() => {
+      watched.current += 1;
+      if (watched.current % SAVE_EVERY_SECONDS === 0) save();
+    }, 1000);
+    return () => { clearInterval(timer); save(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- callers pass a fresh object each render
+  }, [user, videoKey, item?.id, item?.media_type]);
+
   // Close on Escape key
   const handleKeyDown = useCallback(
     (e) => {

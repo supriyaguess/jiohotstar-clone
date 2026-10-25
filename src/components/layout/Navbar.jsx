@@ -4,6 +4,7 @@ import { AiOutlineSearch, AiOutlineClose, AiOutlineUser } from 'react-icons/ai';
 import { IoChevronDownOutline } from 'react-icons/io5';
 import { BsBell } from 'react-icons/bs';
 import { HiMenu, HiX } from 'react-icons/hi';
+import Logo from '../ui/Logo';
 import { useApp } from '../../context/AppContext';
 import { NAV_ITEMS } from '../../constants';
 
@@ -64,11 +65,7 @@ export default function Navbar() {
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <Link to="/" className="flex items-center gap-1 flex-shrink-0">
-              <span className="text-2xl font-black tracking-tight">
-                <span className="text-blue-400">jio</span>
-                <span className="text-white">|</span>
-                <span className="gradient-text">hotstar</span>
-              </span>
+              <Logo size={32} textClass="text-xl" />
             </Link>
 
             {/* Desktop Nav */}
@@ -223,7 +220,7 @@ export default function Navbar() {
               <Link
                 to="/signup"
                 className="flex-1 text-center py-2 rounded-full text-white text-sm font-medium"
-                style={{ background: 'linear-gradient(135deg, #7c3aed, #2563eb)' }}
+                style={{ background: 'linear-gradient(92.7deg, #1492ff 0%, #0860c4 50%, #eb0066 100%)' }}
                 onClick={() => setMobileOpen(false)}
               >
                 Subscribe

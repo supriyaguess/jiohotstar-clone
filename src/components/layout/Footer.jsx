@@ -1,3 +1,4 @@
+import Logo from '../ui/Logo';
 import { Link } from 'react-router-dom';
 import { FaFacebookF, FaTwitter, FaInstagram, FaYoutube } from 'react-icons/fa';
 import { FOOTER_LINKS, LANGUAGES } from '../../constants';
@@ -40,18 +41,14 @@ export default function Footer() {
         <div className="border-t border-white/10 pt-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             {/* Logo */}
-            <Link to="/" className="flex items-center gap-1">
-              <span className="text-xl font-black tracking-tight">
-                <span className="text-blue-400">jio</span>
-                <span className="text-white">|</span>
-                <span className="gradient-text">hotstar</span>
-              </span>
+            <Link to="/" className="flex items-center">
+              <Logo size={28} textClass="text-lg" />
             </Link>
 
             {/* Language selector */}
             <div className="flex items-center gap-2">
               <span className="text-gray-500 text-sm">Language:</span>
-              <select className="bg-zinc-900 border border-white/10 text-gray-300 text-sm px-3 py-1.5 rounded-lg outline-none focus:border-purple-500">
+              <select className="bg-zinc-900 border border-white/10 text-gray-300 text-sm px-3 py-1.5 rounded-lg outline-none focus:border-blue-500">
                 {LANGUAGES.map((lang) => (
                   <option key={lang} value={lang}>
                     {lang}

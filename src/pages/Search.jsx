@@ -84,7 +84,7 @@ export default function Search() {
               value={inputVal}
               onChange={(e) => setInputVal(e.target.value)}
               placeholder="Search movies, shows..."
-              className="w-full pl-12 pr-4 py-3.5 bg-white/5 border border-white/10 rounded-full text-white placeholder-gray-500 outline-none focus:border-purple-500 focus:bg-white/8 transition-all text-sm sm:text-base"
+              className="w-full pl-12 pr-4 py-3.5 bg-white/5 border border-white/10 rounded-full text-white placeholder-gray-500 outline-none focus:border-blue-500 focus:bg-white/8 transition-all text-sm sm:text-base"
             />
             <button
               type="submit"
@@ -114,7 +114,7 @@ export default function Search() {
                       ? 'text-white'
                       : 'bg-white/5 text-gray-400 hover:text-white'
                   }`}
-                  style={filter === tab.key ? { background: 'linear-gradient(135deg, #7c3aed, #2563eb)' } : {}}
+                  style={filter === tab.key ? { background: 'linear-gradient(92.7deg, #1492ff 0%, #0860c4 50%, #eb0066 100%)' } : {}}
                 >
                   {tab.label}
                 </button>

@@ -1,65 +1,33 @@
-import { tmdbAxios } from './config';
+// Catalog data is served by our backend (which proxies + caches TMDB), so no API key lives in the browser.
+import { api } from './client';
+
+const list = (type, name) => (page = 1) => api.get(`/catalog/list/${type}/${name}`, { params: { page } });
+const title = (type) => (id) => api.get(`/catalog/title/${type}/${id}`);
+const discover = (type) => (genre, page = 1) => api.get(`/catalog/discover/${type}`, { params: { genre, page } });
 
 // ─── Trending ────────────────────────────────────────────────────────────────
 export const getTrending = (mediaType = 'all', timeWindow = 'week') =>
-  tmdbAxios.get(`/trending/${mediaType}/${timeWindow}`);
+  api.get(`/catalog/trending/${mediaType}/${timeWindow}`);
 
 // ─── Movies ──────────────────────────────────────────────────────────────────
-export const getPopularMovies = (page = 1) =>
-  tmdbAxios.get('/movie/popular', { params: { page } });
-
-export const getTopRatedMovies = (page = 1) =>
-  tmdbAxios.get('/movie/top_rated', { params: { page } });
-
-export const getUpcomingMovies = (page = 1) =>
-  tmdbAxios.get('/movie/upcoming', { params: { page } });
-
-export const getNowPlayingMovies = (page = 1) =>
-  tmdbAxios.get('/movie/now_playing', { params: { page } });
-
-export const getMovieDetails = (id) =>
-  tmdbAxios.get(`/movie/${id}`, {
-    params: { append_to_response: 'videos,credits,similar,images' },
-  });
-
-export const discoverMoviesByGenre = (genreId, page = 1) =>
-  tmdbAxios.get('/discover/movie', {
-    params: { with_genres: genreId, sort_by: 'popularity.desc', page },
-  });
+export const getPopularMovies = list('movie', 'popular');
+export const getTopRatedMovies = list('movie', 'top_rated');
+export const getUpcomingMovies = list('movie', 'upcoming');
+export const getNowPlayingMovies = list('movie', 'now_playing');
+export const getMovieDetails = title('movie');
+export const discoverMoviesByGenre = discover('movie');
 
 // ─── TV Shows ────────────────────────────────────────────────────────────────
-export const getPopularTV = (page = 1) =>
-  tmdbAxios.get('/tv/popular', { params: { page } });
-
-export const getTopRatedTV = (page = 1) =>
-  tmdbAxios.get('/tv/top_rated', { params: { page } });
-
-export const getOnAirTV = (page = 1) =>
-  tmdbAxios.get('/tv/on_the_air', { params: { page } });
-
-export const getAiringTodayTV = (page = 1) =>
-  tmdbAxios.get('/tv/airing_today', { params: { page } });
-
-export const getTVDetails = (id) =>
-  tmdbAxios.get(`/tv/${id}`, {
-    params: { append_to_response: 'videos,credits,similar,images' },
-  });
-
-export const discoverTVByGenre = (genreId, page = 1) =>
-  tmdbAxios.get('/discover/tv', {
-    params: { with_genres: genreId, sort_by: 'popularity.desc', page },
-  });
+export const getPopularTV = list('tv', 'popular');
+export const getTopRatedTV = list('tv', 'top_rated');
+export const getOnAirTV = list('tv', 'on_the_air');
+export const getAiringTodayTV = list('tv', 'airing_today');
+export const getTVDetails = title('tv');
+export const discoverTVByGenre = discover('tv');
 
 // ─── Genres ──────────────────────────────────────────────────────────────────
-export const getMovieGenres = () => tmdbAxios.get('/genre/movie/list');
-export const getTVGenres = () => tmdbAxios.get('/genre/tv/list');
+export const getMovieGenres = () => api.get('/catalog/genres/movie');
+export const getTVGenres = () => api.get('/catalog/genres/tv');
 
 // ─── Search ──────────────────────────────────────────────────────────────────
-export const searchMulti = (query, page = 1) =>
-  tmdbAxios.get('/search/multi', { params: { query, page, include_adult: false } });
-
-export const searchMovies = (query, page = 1) =>
-  tmdbAxios.get('/search/movie', { params: { query, page } });
-
-export const searchTV = (query, page = 1) =>
-  tmdbAxios.get('/search/tv', { params: { query, page } });
+export const searchMulti = (query, page = 1) => api.get('/catalog/search', { params: { q: query, page } });

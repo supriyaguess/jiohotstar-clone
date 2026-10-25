@@ -1,7 +1,3 @@
-import axios from 'axios';
-
-export const TMDB_BASE_URL = import.meta.env.VITE_TMDB_BASE_URL || 'https://api.themoviedb.org/3';
-export const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY || '';
 export const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p';
 
 export const BACKDROP_SIZES = {
@@ -22,13 +18,11 @@ export const PROFILE_SIZES = {
   md: `${IMAGE_BASE_URL}/w185`,
 };
 
-export const tmdbAxios = axios.create({
-  baseURL: TMDB_BASE_URL,
-  params: {
-    api_key: TMDB_API_KEY,
-    language: 'en-US',
-  },
-});
+// Inline SVGs: no third-party placeholder service to go down.
+const placeholder = (w, h, label) =>
+  `data:image/svg+xml;utf8,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect width="100%" height="100%" fill="#1a1c24"/><text x="50%" y="50%" fill="#4b5060" font-family="sans-serif" font-size="${Math.round(w / 18)}" text-anchor="middle" dominant-baseline="middle">${label}</text></svg>`
+  )}`;
 
-export const PLACEHOLDER_BACKDROP = 'https://via.placeholder.com/1280x720/1a1a2e/7c3aed?text=No+Image';
-export const PLACEHOLDER_POSTER = 'https://via.placeholder.com/500x750/1a1a2e/7c3aed?text=No+Poster';
+export const PLACEHOLDER_BACKDROP = placeholder(1280, 720, 'No image');
+export const PLACEHOLDER_POSTER = placeholder(500, 750, 'No poster');

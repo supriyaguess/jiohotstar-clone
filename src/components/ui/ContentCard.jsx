@@ -16,7 +16,7 @@ const POPUP_WIDTH = 320;
 /** Expanded hover popup — rendered via portal to escape overflow clipping */
 function HoverPopup({ item, anchorRect, onClose }) {
   const navigate = useNavigate();
-  const { toggleWatchlist, isInWatchlist } = useApp();
+  const { toggleWatchlist, isInWatchlist, requireAuth } = useApp();
 
   const mediaType = item.media_type || (item.title ? 'movie' : 'tv');
   const title = getTitle(item);
@@ -69,20 +69,13 @@ function HoverPopup({ item, anchorRect, onClose }) {
 
           {/* Centered play button */}
           <button
-            onClick={goDetail}
+            onClick={() => requireAuth(goDetail)}
             className="absolute inset-0 flex items-center justify-center group/play"
           >
             <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-xl transition-transform duration-150 group-hover/play:scale-110">
               <BsPlayFill size={26} className="text-black ml-1" />
             </div>
           </button>
-
-          {/* Premium badge */}
-          {item.vote_average >= 7.5 && (
-            <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded text-[10px] font-bold bg-yellow-500 text-black">
-              PREMIUM
-            </span>
-          )}
         </div>
 
         {/* Info section */}
@@ -120,9 +113,9 @@ function HoverPopup({ item, anchorRect, onClose }) {
           {/* Action buttons */}
           <div className="flex items-center gap-2">
             <button
-              onClick={goDetail}
+              onClick={() => requireAuth(goDetail)}
               className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-white text-xs font-semibold transition-opacity hover:opacity-90"
-              style={{ background: 'linear-gradient(135deg, #7c3aed, #2563eb)' }}
+              style={{ background: 'linear-gradient(92.7deg, #1492ff 0%, #0860c4 50%, #eb0066 100%)' }}
             >
               <BsPlayFill size={14} />
               Play
@@ -132,7 +125,7 @@ function HoverPopup({ item, anchorRect, onClose }) {
               className="flex items-center justify-center p-2 rounded-lg bg-white/8 border border-white/10 text-white hover:bg-white/15 transition-colors"
               title={inWatchlist ? 'Remove from watchlist' : 'Add to watchlist'}
             >
-              {inWatchlist ? <BsBookmarkFill size={13} className="text-purple-400" /> : <BsPlusLg size={13} />}
+              {inWatchlist ? <BsBookmarkFill size={13} className="text-blue-400" /> : <BsPlusLg size={13} />}
             </button>
             <button
               onClick={goDetail}
@@ -164,7 +157,6 @@ export default function ContentCard({ item, variant = 'poster' }) {
 
   const mediaType = item.media_type || (item.title ? 'movie' : 'tv');
   const title = getTitle(item);
-  const isPremium = item.vote_average >= 7.5;
 
   const imgSrc = variant === 'backdrop'
     ? getBackdropUrl(item.backdrop_path, 'sm')
@@ -210,13 +202,6 @@ export default function ContentCard({ item, variant = 'poster' }) {
           loading="lazy"
           onError={() => setImageError(true)}
         />
-
-        {/* Premium badge */}
-        {isPremium && (
-          <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded text-[10px] font-bold bg-yellow-500/90 text-black">
-            PREMIUM
-          </div>
-        )}
 
         {/* Bottom gradient + title (always visible on small screens, hidden on hover for desktop) */}
         <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent rounded-b-lg pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-2">

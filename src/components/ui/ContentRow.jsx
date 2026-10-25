@@ -36,9 +36,9 @@ export default function ContentRow({
         {seeAllLink && (
           <Link
             to={seeAllLink}
-            className="text-sm font-medium text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1"
+            className="text-sm font-medium text-[#a8aeba] hover:text-white transition-colors flex items-center gap-1"
           >
-            See All →
+            View All ›
           </Link>
         )}
       </div>
@@ -50,13 +50,13 @@ export default function ContentRow({
         <Swiper
           modules={[Navigation, A11y]}
           navigation
-          spaceBetween={12}
+          spaceBetween={8}
           slidesPerView={slidesPerView.xs}
           breakpoints={{
-            475: { slidesPerView: slidesPerView.sm, spaceBetween: 12 },
-            640: { slidesPerView: slidesPerView.md, spaceBetween: 16 },
-            1024: { slidesPerView: slidesPerView.lg, spaceBetween: 16 },
-            1280: { slidesPerView: slidesPerView.xl, spaceBetween: 16 },
+            475: { slidesPerView: slidesPerView.sm, spaceBetween: 8 },
+            640: { slidesPerView: slidesPerView.md, spaceBetween: 10 },
+            1024: { slidesPerView: slidesPerView.lg, spaceBetween: 10 },
+            1280: { slidesPerView: slidesPerView.xl, spaceBetween: 10 },
           }}
           className="content-row-swiper"
         >

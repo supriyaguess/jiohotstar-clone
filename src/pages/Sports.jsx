@@ -2,58 +2,7 @@ import { useEffect, useState } from 'react';
 import { discoverMoviesByGenre, discoverTVByGenre } from '../api/tmdb';
 import ContentRow from '../components/ui/ContentRow';
 import { SPORTS_CATEGORIES } from '../constants';
-
-// Matches from cricket schedule (static data for demo)
-const LIVE_MATCHES = [
-  {
-    id: 1,
-    sport: 'Cricket',
-    team1: 'India',
-    team2: 'Australia',
-    score1: '287/5',
-    score2: 'Yet to bat',
-    overs: '45.2/50',
-    status: 'LIVE',
-    tournament: 'ICC ODI World Cup',
-    time: null,
-  },
-  {
-    id: 2,
-    sport: 'Football',
-    team1: 'Manchester City',
-    team2: 'Arsenal',
-    score1: '2',
-    score2: '1',
-    overs: "73'",
-    status: 'LIVE',
-    tournament: 'Premier League',
-    time: null,
-  },
-  {
-    id: 3,
-    sport: 'Cricket',
-    team1: 'Pakistan',
-    team2: 'England',
-    score1: '-',
-    score2: '-',
-    overs: null,
-    status: 'UPCOMING',
-    tournament: 'T20 World Cup',
-    time: 'Today, 7:00 PM IST',
-  },
-  {
-    id: 4,
-    sport: 'Kabaddi',
-    team1: 'Jaipur Pink Panthers',
-    team2: 'Patna Pirates',
-    score1: '-',
-    score2: '-',
-    overs: null,
-    status: 'UPCOMING',
-    tournament: 'Pro Kabaddi League',
-    time: 'Today, 8:30 PM IST',
-  },
-];
+import { api } from '../api/client';
 
 function MatchCard({ match }) {
   const isLive = match.status === 'LIVE';
@@ -88,7 +37,7 @@ function MatchCard({ match }) {
       {isLive && (
         <button
           className="mt-3 w-full py-1.5 rounded-lg text-xs font-semibold text-white flex items-center justify-center gap-1"
-          style={{ background: 'linear-gradient(135deg, #7c3aed, #2563eb)' }}
+          style={{ background: 'linear-gradient(92.7deg, #1492ff 0%, #0860c4 50%, #eb0066 100%)' }}
         >
           ▶ Watch Live
         </button>
@@ -100,10 +49,12 @@ function MatchCard({ match }) {
 export default function Sports() {
   const [documentaries, setDocumentaries] = useState([]);
   const [sportsShows, setSportsShows] = useState([]);
+  const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState(null);
 
   useEffect(() => {
+    api.get('/sports/matches').then((res) => setMatches(res.data)).catch(() => {});
     Promise.allSettled([
       discoverMoviesByGenre(99),    // Documentary genre
       discoverTVByGenre(10764),     // Reality/sports TV
@@ -123,7 +74,7 @@ export default function Sports() {
         }}
       >
         <div className="absolute inset-0 opacity-20">
-          <div className="absolute top-10 left-10 w-64 h-64 rounded-full bg-purple-500 blur-3xl" />
+          <div className="absolute top-10 left-10 w-64 h-64 rounded-full bg-blue-500 blur-3xl" />
           <div className="absolute bottom-0 right-10 w-48 h-48 rounded-full bg-blue-500 blur-3xl" />
         </div>
         <div className="relative max-w-4xl">
@@ -147,7 +98,7 @@ export default function Sports() {
           className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
             !activeCategory ? 'text-white' : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
           }`}
-          style={!activeCategory ? { background: 'linear-gradient(135deg, #7c3aed, #2563eb)' } : {}}
+          style={!activeCategory ? { background: 'linear-gradient(92.7deg, #1492ff 0%, #0860c4 50%, #eb0066 100%)' } : {}}
         >
           All Sports
         </button>
@@ -174,11 +125,11 @@ export default function Sports() {
           <h2 className="text-xl font-bold text-white">Live & Upcoming</h2>
           <span className="flex items-center gap-1.5 text-xs font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full">
             <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-            2 LIVE
+            {matches.filter((m) => m.status === 'LIVE').length} LIVE
           </span>
         </div>
         <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {LIVE_MATCHES
+          {matches
             .filter((m) => !activeCategory || m.sport === activeCategory.name)
             .map((match) => (
               <MatchCard key={match.id} match={match} />

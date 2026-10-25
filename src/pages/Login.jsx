@@ -1,20 +1,34 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { AiOutlineEye, AiOutlineEyeInvisible, AiOutlineMail, AiOutlineLock } from 'react-icons/ai';
 import { FcGoogle } from 'react-icons/fc';
-import { FaFacebookF } from 'react-icons/fa';
+import Logo from '../components/ui/Logo';
 import { useApp } from '../context/AppContext';
+import { API_URL, apiError } from '../api/client';
+
+const GOOGLE_ERRORS = {
+  google_denied: 'Google sign-in was cancelled.',
+  invalid_state: 'Sign-in expired. Please try again.',
+  email_unverified: 'Your Google email is not verified.',
+  google_failed: 'Google sign-in failed. Please try again.',
+  session: 'Could not start your session. Please sign in again.',
+};
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const { login } = useApp();
+  const [params] = useSearchParams();
+  const [error, setError] = useState(GOOGLE_ERRORS[params.get('error')] || '');
+  const { user, login } = useApp();
   const navigate = useNavigate();
+  const requested = useLocation().state?.from;
+  const from = typeof requested === 'string' && /^\/(?![/\\])/.test(requested) ? requested : '/';
 
-  const handleSubmit = (e) => {
+  useEffect(() => { if (user) navigate(from, { replace: true }); }, [user, navigate, from]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     if (!email || !password) {
@@ -22,23 +36,25 @@ export default function Login() {
       return;
     }
     setLoading(true);
-    // Simulate login (no backend)
-    setTimeout(() => {
-      login({ name: email.split('@')[0], email });
-      navigate('/');
+    try {
+      await login(email, password);
+      navigate(from);
+    } catch (err) {
+      setError(apiError(err));
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   return (
     <div
       className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden"
       style={{
-        background: 'linear-gradient(135deg, #0f0f0f 0%, #1a0533 50%, #0a1628 100%)',
+        background: 'linear-gradient(135deg, #0f1014 0%, #1a0533 50%, #0a1628 100%)',
       }}
     >
       {/* Bg blobs */}
-      <div className="absolute top-1/4 -left-32 w-96 h-96 rounded-full bg-purple-900/30 blur-3xl pointer-events-none" />
+      <div className="absolute top-1/4 -left-32 w-96 h-96 rounded-full bg-blue-900/30 blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 -right-32 w-96 h-96 rounded-full bg-blue-900/30 blur-3xl pointer-events-none" />
 
       {/* Card */}
@@ -46,26 +62,19 @@ export default function Login() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Link to="/" className="inline-block">
-            <span className="text-3xl font-black tracking-tight">
-              <span className="text-blue-400">jio</span>
-              <span className="text-white">|</span>
-              <span className="gradient-text">hotstar</span>
-            </span>
+            <Logo size={40} textClass="text-3xl" />
           </Link>
           <p className="text-gray-400 text-sm mt-3">Sign in to continue watching</p>
         </div>
 
-        {/* Social logins */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          <button className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm font-medium hover:bg-white/10 transition-colors">
-            <FcGoogle size={18} />
-            Google
-          </button>
-          <button className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-600/20 border border-blue-600/30 text-white text-sm font-medium hover:bg-blue-600/30 transition-colors">
-            <FaFacebookF size={16} className="text-blue-400" />
-            Facebook
-          </button>
-        </div>
+        {/* Google sign-in (server-side OAuth redirect) */}
+        <a
+          href={`${API_URL}/auth/google`}
+          className="flex items-center justify-center gap-2 py-2.5 mb-6 rounded-xl bg-white/5 border border-white/10 text-white text-sm font-medium hover:bg-white/10 transition-colors"
+        >
+          <FcGoogle size={18} />
+          Continue with Google
+        </a>
 
         {/* Divider */}
         <div className="flex items-center gap-3 mb-6">
@@ -87,7 +96,7 @@ export default function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Email address"
-              className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 outline-none focus:border-purple-500 transition-colors text-sm"
+              className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 outline-none focus:border-blue-500 transition-colors text-sm"
               autoComplete="email"
             />
           </div>
@@ -103,7 +112,7 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Password"
-              className="w-full pl-10 pr-10 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 outline-none focus:border-purple-500 transition-colors text-sm"
+              className="w-full pl-10 pr-10 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 outline-none focus:border-blue-500 transition-colors text-sm"
               autoComplete="current-password"
             />
             <button
@@ -123,18 +132,12 @@ export default function Login() {
           )}
 
           {/* Forgot password */}
-          <div className="text-right">
-            <a href="#" className="text-purple-400 hover:text-purple-300 text-xs transition-colors">
-              Forgot password?
-            </a>
-          </div>
-
           {/* Submit */}
           <button
             type="submit"
             disabled={loading}
             className="w-full py-3 rounded-xl text-white font-semibold text-sm transition-all duration-200 disabled:opacity-60"
-            style={{ background: 'linear-gradient(135deg, #7c3aed, #2563eb)' }}
+            style={{ background: 'linear-gradient(92.7deg, #1492ff 0%, #0860c4 50%, #eb0066 100%)' }}
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">
@@ -150,8 +153,8 @@ export default function Login() {
         {/* Sign up link */}
         <p className="text-center text-gray-500 text-sm mt-6">
           Don't have an account?{' '}
-          <Link to="/signup" className="text-purple-400 hover:text-purple-300 font-medium transition-colors">
-            Subscribe Now
+          <Link to="/signup" className="text-blue-400 hover:text-blue-300 font-medium transition-colors">
+            Sign up
           </Link>
         </p>
       </div>
