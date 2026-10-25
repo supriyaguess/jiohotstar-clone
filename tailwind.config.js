@@ -8,16 +8,16 @@ export default {
     extend: {
       colors: {
         hotstar: {
-          bg: '#0f0f0f',
+          bg: '#0f1014',
           card: '#1a1a2e',
-          purple: '#7c3aed',
-          blue: '#2563eb',
+          purple: '#1492ff',
+          blue: '#0860c4',
           gold: '#f59e0b',
           gray: '#a1a1aa',
         },
       },
       backgroundImage: {
-        'hotstar-gradient': 'linear-gradient(135deg, #7c3aed, #2563eb)',
+        'hotstar-gradient': 'linear-gradient(92.7deg, #1492ff 0%, #0860c4 50%, #eb0066 100%)',
         'hero-gradient': 'linear-gradient(to right, rgba(0,0,0,0.9) 40%, transparent 100%)',
         'card-gradient': 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.4) 60%, transparent 100%)',
       },
