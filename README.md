@@ -6,7 +6,7 @@ The project combines a responsive streaming interface with backend APIs for auth
 
 ## Live Demo
 
-- **Frontend:** [JioHotstar Clone](https://jiohotstar-clone-chi.vercel.app/)
+- **Live Application:** [JioHotstar Clone](https://jiohotstar-clone-chi.vercel.app/)
 - **Backend source code:** [Server directory](https://github.com/supriyaguess/jiohotstar-clone/tree/main/server)
 - **Backend documentation:** [Server README](https://github.com/supriyaguess/jiohotstar-clone/blob/main/server/README.md)
 - **Repository:** [GitHub](https://github.com/supriyaguess/jiohotstar-clone)
