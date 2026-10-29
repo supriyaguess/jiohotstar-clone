@@ -26,5 +26,16 @@ export const env = {
   refreshTtlDays: Number(e.REFRESH_TTL_DAYS) || 30,
   google: { clientId: e.GOOGLE_CLIENT_ID, clientSecret: e.GOOGLE_CLIENT_SECRET },
   tmdb: { key: e.TMDB_API_KEY, baseUrl: e.TMDB_BASE_URL || 'https://api.themoviedb.org/3' },
+  // RAG chatbot. All optional: without GEMINI_API_KEY the chatbot features report "not configured".
+  gemini: {
+    apiKey: e.GEMINI_API_KEY || '',
+    embedModel: e.GEMINI_EMBED_MODEL || 'gemini-embedding-2',
+    chatModel: e.GEMINI_CHAT_MODEL || 'gemini-3.8-flash',
+    embedDims: Number(e.GEMINI_EMBED_DIMS) || 768,
+  },
+  sync: {
+    token: e.SYNC_TOKEN || '',                          // shared secret for the cron-triggered catalog sync
+    embedBudget: Number(e.SYNC_EMBED_BUDGET) || 200,    // max embeddings per run (stays inside the free quota)
+  },
   aws: { region: e.AWS_REGION || 'ap-south-1', bucket: e.S3_BUCKET || '' },
 };

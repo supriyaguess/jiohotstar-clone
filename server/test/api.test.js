@@ -180,6 +180,82 @@ describe('catalog proxy', () => {
   });
 });
 
+describe('sports', () => {
+  const sdbEvent = (id, over = {}) => ({
+    idEvent: id, strEvent: 'Alpha vs Beta', strHomeTeam: 'Alpha', strAwayTeam: 'Beta', strLeague: 'Test League',
+    strTimestamp: '2999-01-01T10:00:00', strStatus: 'NS', intHomeScore: null, intAwayScore: null, ...over,
+  });
+
+  it('normalises provider events, caches per day lookup, validates input and sorts live first', async () => {
+    const realFetch = globalThis.fetch;
+    const urls = [];
+    globalThis.fetch = async (url) => {
+      urls.push(String(url));
+      if (!String(url).includes('s=Cricket')) return new Response(JSON.stringify({ events: null }), { status: 200 });
+      return new Response(JSON.stringify({ events: [
+        sdbEvent('1'),
+        sdbEvent('2', { strStatus: '2H', intHomeScore: '3', intAwayScore: '1', strTimestamp: '2000-01-01T10:00:00' }),
+        { idEvent: null },
+      ] }), { status: 200 });
+    };
+    try {
+      const a = await request(t.app).get('/api/sports/fixtures?sport=cricket');
+      assert.equal(a.status, 200);
+      assert.equal(a.body.partial, false);
+      assert.deepEqual(a.body.events.map((e) => [e.id, e.status]), [['2', 'live'], ['1', 'upcoming']]);
+      assert.equal(a.body.events[0].homeScore, 3);
+      assert.equal(a.body.events[0].sport, 'cricket');
+      assert.equal('strHomeTeam' in a.body.events[0], false, 'provider shape does not leak');
+      const calls = urls.length;
+      assert.equal(calls, 3, 'today, tomorrow, yesterday');
+      await request(t.app).get('/api/sports/fixtures?sport=cricket');
+      assert.equal(urls.length, calls, 'second request served from cache');
+      assert.equal((await request(t.app).get('/api/sports/fixtures?sport=chess')).status, 400);
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+
+  it('fails soft when the fixtures provider is down (no 500, flagged partial, backs off)', async () => {
+    const realFetch = globalThis.fetch;
+    let calls = 0;
+    globalThis.fetch = async () => { calls++; return new Response('error code: 1015', { status: 200 }); };
+    try {
+      const res = await request(t.app).get('/api/sports/fixtures?sport=tennis');
+      assert.equal(res.status, 200);
+      assert.deepEqual(res.body, { events: [], partial: true });
+      assert.equal(calls, 1, 'stops hammering the provider after the first refusal');
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+
+  it('serves TMDB sports titles cached, and empty arrays when TMDB is down', async () => {
+    const realFetch = globalThis.fetch;
+    let calls = 0;
+    globalThis.fetch = async () => {
+      calls++;
+      return new Response(JSON.stringify({ results: [{ id: 9, title: 'X', backdrop_path: '/a.jpg' }, { id: 10, title: 'No image' }] }), { status: 200 });
+    };
+    try {
+      const a = await request(t.app).get('/api/sports/titles?sport=kabaddi');
+      assert.equal(a.status, 200);
+      assert.deepEqual(a.body.movies.map((m) => m.id), [9]);
+      assert.equal(a.body.movies[0].media_type, 'movie');
+      assert.equal(a.body.shows[0].media_type, 'tv');
+      await request(t.app).get('/api/sports/titles?sport=kabaddi');
+      assert.equal(calls, 2, 'movie + tv once, then cached');
+      globalThis.fetch = async () => { throw new Error('down'); };
+      const down = await request(t.app).get('/api/sports/titles?sport=cricket');
+      assert.equal(down.status, 200);
+      assert.deepEqual(down.body, { movies: [], shows: [] });
+      assert.equal((await request(t.app).get('/api/sports/titles?sport=nope')).status, 400);
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+});
+
 describe('platform', () => {
   it('sets security headers and a request id, and 404s unknown routes', async () => {
     const res = await request(t.app).get('/api/nope');

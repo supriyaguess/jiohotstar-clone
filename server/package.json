@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node --watch --env-file=.env src/index.js",
     "start": "node src/index.js",
-    "test": "node --test --test-concurrency=1 \"test/*.test.js\""
+    "test": "node --test --test-concurrency=1 \"test/*.test.js\"",
+    "ingest": "node --env-file=.env src/rag/cli.js"
   },
   "engines": {
     "node": ">=20.6"

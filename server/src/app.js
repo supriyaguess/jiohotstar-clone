@@ -16,6 +16,10 @@ import meRoutes from './routes/me.js';
 import watchlistRoutes from './routes/watchlist.js';
 import historyRoutes from './routes/history.js';
 import sportsRoutes from './routes/sports.js';
+import internalRoutes from './routes/internal.js';
+import ragRoutes from './routes/rag.js';
+import { geminiConfigured } from './services/gemini.js';
+import { syncStatus } from './rag/sync.js';
 
 export function createApp(logStream) {
 const app = express();
@@ -45,7 +49,12 @@ app.use(cookieParser());
 app.get('/health', async (req, res) => {
   const [db, cache] = await Promise.allSettled([mongoose.connection.db.admin().ping(), redis.ping()]);
   const ok = db.status === 'fulfilled' && cache.status === 'fulfilled';
-  res.status(ok ? 200 : 503).json({ db: db.status, redis: cache.status });
+  const body = { db: db.status, redis: cache.status };
+  if (ok && geminiConfigured()) { // chatbot index freshness: "stale" if the daily sync hasn't completed in 3 days
+    const s = await syncStatus().catch(() => null);
+    if (s) body.catalog = { titles: s.titles, lastSync: s.lastSync ?? null, stale: !s.lastSync || Date.now() - new Date(s.lastSync) > 3 * 86400_000 };
+  }
+  res.status(ok ? 200 : 503).json(body);
 });
 
 app.use('/api', rateLimit('global', 300, 60));
@@ -55,6 +64,8 @@ app.use('/api/me', meRoutes);
 app.use('/api/watchlist', watchlistRoutes);
 app.use('/api/history', historyRoutes);
 app.use('/api/sports', sportsRoutes);
+app.use('/api/rag', ragRoutes);
+app.use('/api/internal', internalRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

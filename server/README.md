@@ -47,6 +47,32 @@ Protected routes take `Authorization: Bearer <accessToken>` (15 min). Refresh to
 - Structured JSON logs (pino) with request ids (`X-Request-Id`) and auth headers/cookies redacted; `/health` checks Mongo and Redis; graceful shutdown on SIGTERM/SIGINT.
 - 18 integration tests (`npm test`) against real Mongo + Redis cover auth, rotation/theft detection, CSRF, rate limiting, watchlist/history, and cache coalescing. CI runs them plus the frontend build (`.github/workflows/ci.yml`).
 
+## Chatbot (RAG), phase 1: catalog index
+The catalog (movies and series from TMDB) is embedded with Gemini and stored in the `titles` collection, so the chatbot can answer from real data instead of guessing.
+
+| Piece | Where |
+|---|---|
+| Embedding client (retries, quota handling, unit-length vectors) | `src/services/gemini.js` |
+| Title to record + embedded text + content hash | `src/rag/document.js` |
+| Incremental sync (lists + TMDB "changes", budgeted, resumable, locked) | `src/rag/sync.js` |
+| Atlas vector index + semantic search (with a brute-force fallback) | `src/rag/retrieve.js` |
+| First-boot setup (create index, fill an empty catalog) | `src/rag/bootstrap.js` |
+| Cron endpoint `POST /api/internal/sync`, header `X-Sync-Token` | `src/routes/internal.js` |
+| Authenticated semantic search `GET /api/rag/search?q=` | `src/routes/rag.js` |
+
+**Environment** (all optional; without `GEMINI_API_KEY` the chatbot endpoints answer 503 and nothing else changes):
+`GEMINI_API_KEY` (free, from aistudio.google.com), `GEMINI_EMBED_MODEL` (default `gemini-embedding-2`; `gemini-embedding-001` also works), `GEMINI_CHAT_MODEL`, `GEMINI_EMBED_DIMS` (default 768), `SYNC_TOKEN` (32+ random chars), `SYNC_EMBED_BUDGET` (max embeddings per run, default 200).
+
+**Keeping it fresh with no manual work**
+- A cron service (e.g. cron-job.org) calls `POST /api/internal/sync` once a day. The endpoint checks the token in constant time, answers `202` at once and works in the background; `409` if a run is already in progress.
+- Each run takes the first pages of TMDB's popular / top-rated / now-playing / upcoming / on-air lists plus trending, and re-checks titles TMDB reports as changed. Only titles whose embedded text actually changed (sha256 of text + model + dimensions) are re-embedded, and at most `SYNC_EMBED_BUDGET` per run, new titles first, so the free quota is never blown. Leftovers carry over to the next day.
+- `lastSync` only advances after a complete run, so no change can be skipped after a quota error. A Redis lock stops overlapping runs.
+- On boot the vector index is created if missing and an empty catalog starts filling by itself.
+- `/health` reports `catalog: { titles, lastSync, stale }` (stale = no complete sync in 3 days).
+- Manual run if ever needed: `npm run ingest`.
+
+**Search** embeds the question (cached in Redis for a week), runs Atlas `$vectorSearch` with optional filters (type, year, genre), and falls back to an in-process cosine scan on plain MongoDB or while a new index is still building.
+
 ## Production notes
 - `NODE_ENV=production`, HTTPS required (refresh cookie is `Secure; SameSite=None`).
 - Set `API_URL`, `FRONTEND_URL`, and add `${API_URL}/api/auth/google/callback` to the Google OAuth client.

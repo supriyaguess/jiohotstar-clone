@@ -14,13 +14,13 @@ export function PageLoader() {
 }
 
 /** Card skeleton for content rows */
-export function CardSkeleton({ count = 6 }) {
+export function CardSkeleton({ count = 6, wide = false }) {
   return (
     <div className="flex gap-3 overflow-hidden">
       {Array.from({ length: count }).map((_, i) => (
         <div
           key={i}
-          className="flex-shrink-0 w-36 sm:w-44 md:w-52 aspect-[2/3] shimmer rounded-lg"
+          className={`flex-shrink-0 shimmer rounded-lg ${wide ? 'w-56 sm:w-64 aspect-video' : 'w-36 sm:w-44 md:w-52 aspect-[2/3]'}`}
         />
       ))}
     </div>

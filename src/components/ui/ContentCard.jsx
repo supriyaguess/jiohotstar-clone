@@ -144,8 +144,9 @@ function HoverPopup({ item, anchorRect, onClose }) {
 
 /**
  * Reusable content card with hover-expand popup (like Hotstar/Netflix).
+ * `clip` variant: 16:9, play icon bottom-left, optional `badge` bottom-right, title below the card.
  */
-export default function ContentCard({ item, variant = 'poster' }) {
+export default function ContentCard({ item, variant = 'poster', badge }) {
   const [imageError, setImageError] = useState(false);
   const [hoverPopup, setHoverPopup] = useState(false);
   const [anchorRect, setAnchorRect] = useState(null);
@@ -158,7 +159,8 @@ export default function ContentCard({ item, variant = 'poster' }) {
   const mediaType = item.media_type || (item.title ? 'movie' : 'tv');
   const title = getTitle(item);
 
-  const imgSrc = variant === 'backdrop'
+  const wide = variant !== 'poster';
+  const imgSrc = wide
     ? getBackdropUrl(item.backdrop_path, 'sm')
     : getPosterUrl(item.poster_path, 'md');
 
@@ -188,7 +190,7 @@ export default function ContentCard({ item, variant = 'poster' }) {
       <div
         ref={cardRef}
         className="relative cursor-pointer select-none rounded-lg overflow-hidden group"
-        style={{ aspectRatio: variant === 'backdrop' ? '16/9' : '2/3' }}
+        style={{ aspectRatio: wide ? '16/9' : '2/3' }}
         onClick={() => navigate(`/detail/${mediaType}/${item.id}`)}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
@@ -196,18 +198,37 @@ export default function ContentCard({ item, variant = 'poster' }) {
       >
         {/* Poster / backdrop image */}
         <img
-          src={imageError ? (variant === 'backdrop' ? getBackdropUrl(null) : getPosterUrl(null)) : imgSrc}
+          src={imageError ? (wide ? getBackdropUrl(null) : getPosterUrl(null)) : imgSrc}
           alt={title}
           className="w-full h-full object-cover rounded-lg transition-transform duration-500 group-hover:scale-105 group-hover:brightness-75"
           loading="lazy"
           onError={() => setImageError(true)}
         />
 
-        {/* Bottom gradient + title (always visible on small screens, hidden on hover for desktop) */}
+        {variant === 'clip' ? (
+          <>
+            <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/70 to-transparent pointer-events-none" />
+            <BsPlayFill size={22} className="absolute left-2.5 bottom-2 text-white/90 drop-shadow pointer-events-none" />
+            {badge && (
+              <span className="absolute right-2.5 bottom-2 text-xs font-semibold text-white/90 drop-shadow pointer-events-none">{badge}</span>
+            )}
+          </>
+        ) : (
+        /* Bottom gradient + title (always visible on small screens, hidden on hover for desktop) */
         <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent rounded-b-lg pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-2">
           <p className="text-white text-[11px] font-semibold line-clamp-1">{title}</p>
         </div>
+        )}
       </div>
+
+      {variant === 'clip' && (
+        <p
+          className="mt-2 px-1 sm:px-3 text-base sm:text-[17px] leading-snug text-[#e1e6f0] line-clamp-2 cursor-pointer"
+          onClick={() => navigate(`/detail/${mediaType}/${item.id}`)}
+        >
+          {title}
+        </p>
+      )}
 
       {/* Hover popup portal */}
       {hoverPopup && anchorRect && (

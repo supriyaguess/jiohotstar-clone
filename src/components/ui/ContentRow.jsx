@@ -12,7 +12,8 @@ import { CardSkeleton } from './LoadingSpinner';
  * @param {string} title - section heading
  * @param {Array} items - TMDB items array
  * @param {string} seeAllLink - route for "See All" button
- * @param {'poster' | 'backdrop'} cardVariant - card type
+ * @param {'poster' | 'backdrop' | 'clip'} cardVariant - card type ('clip' = 16:9 with play icon + title below)
+ * @param {(item) => ReactNode} renderItem - custom card renderer (items then need a unique `id`)
  * @param {boolean} loading - show skeleton
  */
 export default function ContentRow({
@@ -20,11 +21,15 @@ export default function ContentRow({
   items = [],
   seeAllLink,
   cardVariant = 'poster',
+  renderItem,
   loading = false,
 }) {
   if (!loading && (!items || items.length === 0)) return null;
 
-  const slidesPerView = cardVariant === 'backdrop'
+  const wide = cardVariant !== 'poster';
+  const slidesPerView = cardVariant === 'clip'
+    ? { xs: 1.6, sm: 2.4, md: 2.8, lg: 4.2, xl: 5.2 }
+    : cardVariant === 'backdrop'
     ? { xs: 1.5, sm: 2.5, md: 3, lg: 4, xl: 5 }
     : { xs: 2.5, sm: 3.5, md: 4.5, lg: 5.5, xl: 7 };
 
@@ -45,7 +50,7 @@ export default function ContentRow({
 
       {/* Skeleton */}
       {loading ? (
-        <CardSkeleton count={cardVariant === 'backdrop' ? 4 : 7} />
+        <CardSkeleton count={wide ? 4 : 7} wide={wide} />
       ) : (
         <Swiper
           modules={[Navigation, A11y]}
@@ -62,7 +67,7 @@ export default function ContentRow({
         >
           {items.map((item) => (
             <SwiperSlide key={`${item.id}-${item.media_type || ''}`}>
-              <ContentCard item={item} variant={cardVariant} />
+              {renderItem ? renderItem(item) : <ContentCard item={item} variant={cardVariant} />}
             </SwiperSlide>
           ))}
         </Swiper>
