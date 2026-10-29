@@ -18,6 +18,7 @@ import historyRoutes from './routes/history.js';
 import sportsRoutes from './routes/sports.js';
 import internalRoutes from './routes/internal.js';
 import ragRoutes from './routes/rag.js';
+import chatRoutes from './routes/chat.js';
 import { geminiConfigured } from './services/gemini.js';
 import { syncStatus } from './rag/sync.js';
 
@@ -33,7 +34,7 @@ app.use(pinoHttp({
     res.setHeader('X-Request-Id', id);
     return id;
   },
-  autoLogging: { ignore: (req) => req.url === '/health' },
+  autoLogging: { ignore: (req) => req.url === '/health' || req.url === '/ping' }, // pings every few minutes would drown the logs
   serializers: {
     req: (req) => ({ id: req.id, method: req.method, url: req.url.split('?')[0], ip: req.remoteAddress }),
     res: (res) => ({ statusCode: res.statusCode }),
@@ -45,6 +46,9 @@ app.use(compression());
 app.use(cors({ origin: env.frontendUrl, credentials: true }));
 app.use(express.json({ limit: '100kb' }));
 app.use(cookieParser());
+
+// Keep-alive target for a cron pinger: touches no database or cache, so it is as cheap as a request gets.
+app.get('/ping', (req, res) => res.set('Cache-Control', 'no-store').type('text/plain').send('pong'));
 
 app.get('/health', async (req, res) => {
   const [db, cache] = await Promise.allSettled([mongoose.connection.db.admin().ping(), redis.ping()]);
@@ -65,6 +69,7 @@ app.use('/api/watchlist', watchlistRoutes);
 app.use('/api/history', historyRoutes);
 app.use('/api/sports', sportsRoutes);
 app.use('/api/rag', ragRoutes);
+app.use('/api/chat', chatRoutes);
 app.use('/api/internal', internalRoutes);
 
 app.use(notFound);

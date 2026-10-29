@@ -27,7 +27,7 @@ export default function GuestPrompt() {
   };
 
   return (
-    <div className="fixed z-50 left-4 right-4 bottom-20 md:left-auto md:right-6 md:bottom-6 md:w-[380px] animate-fade-in">
+    <div className="fixed z-50 left-4 right-4 bottom-36 md:left-auto md:right-6 md:bottom-24 md:w-[380px] animate-fade-in">
       <div className="relative flex items-center gap-3 bg-[#18181b]/95 backdrop-blur-md border border-white/10 rounded-2xl p-4 shadow-2xl">
         <LogoMark size={40} />
         <div className="flex-1 min-w-0">

@@ -1,3 +1,6 @@
+// Chatbot name: change here to rename it everywhere.
+export const BOT_NAME = 'Filmy';
+
 export const NAV_ITEMS = [
   {
     label: 'Home',

@@ -10,13 +10,15 @@ const LOCK_KEY = 'rag:sync:lock';
 const LOCK_SECONDS = 30 * 60;
 const STALE_DAYS = 30;          // re-check titles that haven't been refreshed in this long
 const DETAIL_CONCURRENCY = 5;
+const CHUNK = Number(process.env.GEMINI_EMBED_CHUNK) || 20;
+// Pause between chunks: the free tier limits tokens per minute, and a burst of full-size batches trips it.
+const paceMs = () => (process.env.GEMINI_EMBED_PACE_MS !== undefined ? Number(process.env.GEMINI_EMBED_PACE_MS) : 8000);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const LISTS = {
   movie: ['popular', 'top_rated', 'now_playing', 'upcoming'],
   tv: ['popular', 'top_rated', 'on_the_air', 'airing_today'],
 };
-
-class NothingToEmbed extends Error {}
 
 export class SyncBusyError extends Error {
   constructor() { super('A catalog sync is already running'); this.name = 'SyncBusyError'; }
@@ -143,29 +145,31 @@ async function doSync({ budget = env.sync.embedBudget, pages = 2 } = {}) {
   const batch = needEmbed.slice(0, budget);
   stats.deferred = needEmbed.length - batch.length;
 
-  try {
-    if (!batch.length) throw new NothingToEmbed();
-    const vectors = await embedTexts(batch.map((b) => b.rec.text), { kind: 'document', titles: batch.map((b) => b.rec.title) });
-    await Title.bulkWrite(batch.map(({ rec }, i) => ({
-      updateOne: {
-        filter: { mediaType: rec.mediaType, tmdbId: rec.tmdbId },
-        update: { $set: { ...rec, embedding: vectors[i], embeddedAt: new Date() } },
-        upsert: true,
-      },
-    })));
-    batch.forEach(({ isNew }) => (isNew ? stats.created++ : stats.updated++));
-    stats.embedded = batch.length;
-  } catch (err) {
-    if (err instanceof NothingToEmbed) { /* everything was unchanged */ }
-    else if (!(err instanceof GeminiError)) throw err;
-    else {
-    // Quota or outage: keep what's already saved, retry the rest on the next run.
+  // Embed chunk by chunk and save each one as it lands, so a quota error halfway keeps the earlier work.
+  for (let i = 0; i < batch.length; i += CHUNK) {
+    const chunk = batch.slice(i, i + CHUNK);
+    try {
+      const vectors = await embedTexts(chunk.map((b) => b.rec.text), { kind: 'document', titles: chunk.map((b) => b.rec.title) });
+      await Title.bulkWrite(chunk.map(({ rec }, j) => ({
+        updateOne: {
+          filter: { mediaType: rec.mediaType, tmdbId: rec.tmdbId },
+          update: { $set: { ...rec, embedding: vectors[j], embeddedAt: new Date() } },
+          upsert: true,
+        },
+      })));
+      chunk.forEach(({ isNew }) => (isNew ? stats.created++ : stats.updated++));
+      stats.embedded += chunk.length;
+    } catch (err) {
+      if (!(err instanceof GeminiError)) throw err;
+      // Quota or outage: keep what's already saved, retry the rest on the next run.
       stats.partial = true;
-      stats.deferred += batch.length;
       stats.error = err.status === 429 ? 'gemini quota exhausted' : `gemini error ${err.status}`;
-      log('warn', 'embedding stopped', { status: err.status });
+      log('warn', 'embedding stopped', { status: err.status, saved: stats.embedded });
+      break;
     }
+    if (i + CHUNK < batch.length) await sleep(paceMs());
   }
+  stats.deferred = needEmbed.length - stats.embedded;
 
   stats.ms = Date.now() - started;
   // Only move the "last sync" marker forward after a complete run, so no change is ever skipped.

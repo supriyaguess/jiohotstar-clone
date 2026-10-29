@@ -77,3 +77,12 @@ The catalog (movies and series from TMDB) is embedded with Gemini and stored in 
 - `NODE_ENV=production`, HTTPS required (refresh cookie is `Secure; SameSite=None`).
 - Set `API_URL`, `FRONTEND_URL`, and add `${API_URL}/api/auth/google/callback` to the Google OAuth client.
 - Frontend: set `VITE_API_URL=https://<api-host>/api`.
+
+## Chatbot (phase 2): "Filmy" chat API
+Streaming chat over Server-Sent Events, backed by Gemini function calling. All routes need `Authorization: Bearer <accessToken>`.
+
+- `POST /api/chat` body `{ message (1-500 chars), lang: "en"|"hi"|"auto" }`. Validation, auth and rate-limit errors are plain JSON (400/401/429, 503 `Chatbot is not configured` without `GEMINI_API_KEY`). Otherwise `200 text/event-stream` with frames `token {text}`, `titles {titles:[{tmdbId,mediaType,title,year,posterPath,rating}]}` (only titles a tool returned this turn, deduped, max 8), then `done {}`, or `error {code: busy|rate_limited|not_configured|internal, message}` (no `done`). A `: ping` comment is sent every ~15s. Closing the connection aborts the upstream call.
+- `GET /api/chat/history` returns `{ messages: [{ role: "user"|"bot", text, titles? }] }` (last 20). `DELETE /api/chat` clears it (204).
+- Tools the model can call: `search_catalog` (semantic search; falls back to live TMDB search/discover when the catalog is empty, the embedding quota is hit, or no match), `get_title_details`, `get_my_list`, `get_watch_history` (user id is taken from the token, never from model arguments), `get_sports_fixtures`. At most 4 model rounds per message.
+- Limits: 10 requests/minute and `CHAT_DAILY_LIMIT` (default 100) messages/day per user, one active stream per user (Redis lock). Memory: last 20 messages per user in Redis for 2 hours (text and title cards only). `BOT_NAME` (default `Filmy`) renames the bot. `CHAT_HEARTBEAT_MS` tunes the ping interval.
+- Privacy: no user id, name, email or token is sent to Gemini; message text, tool args and tool results are never logged.

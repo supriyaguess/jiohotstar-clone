@@ -7,6 +7,7 @@ import { BsBookmark, BsBookmarkFill } from 'react-icons/bs';
 import { FaRegUserCircle, FaUserCircle } from 'react-icons/fa';
 import { useApp } from '../../context/AppContext';
 import { LogoMark } from '../ui/Logo';
+import UserAvatar from '../ui/UserAvatar';
 
 const NAV = [
   { label: 'Home',    path: '/',          Icon: IoHomeOutline,   ActiveIcon: IoHome,        end: true },
@@ -70,8 +71,8 @@ export default function Sidebar() {
                       isActive ? 'bg-white/10' : 'group-hover:bg-white/5'
                     }`}
                   >
-                    {label === 'My Space' && user?.avatar ? (
-                      <img src={user.avatar} alt="" referrerPolicy="no-referrer" className="w-6 h-6 rounded-full object-cover" />
+                    {label === 'My Space' && user ? (
+                      <UserAvatar user={user} size={28} ring={isActive} />
                     ) : isActive ? <ActiveIcon size={24} /> : <Icon size={24} />}
                   </span>
                   <span
@@ -106,7 +107,9 @@ export default function Sidebar() {
           >
             {({ isActive }) => (
               <>
-                {isActive ? <ActiveIcon size={22} /> : <Icon size={22} />}
+                {label === 'My Space' && user ? (
+                  <UserAvatar user={user} size={24} ring={isActive} />
+                ) : isActive ? <ActiveIcon size={22} /> : <Icon size={22} />}
                 <span className="text-[10px] font-medium">{label}</span>
               </>
             )}

@@ -30,7 +30,10 @@ export const env = {
   gemini: {
     apiKey: e.GEMINI_API_KEY || '',
     embedModel: e.GEMINI_EMBED_MODEL || 'gemini-embedding-2',
-    chatModel: e.GEMINI_CHAT_MODEL || 'gemini-3.8-flash',
+    // Verified against the live API (function calling + streaming). Preview/"latest" aliases and the newest
+    // model were overloaded (503 / hangs) when tested, hence a cheap, stable default plus fallbacks.
+    chatModel: e.GEMINI_CHAT_MODEL || 'gemini-3.5-flash-lite',
+    chatFallbackModels: (e.GEMINI_CHAT_FALLBACK_MODELS ?? 'gemini-3.5-flash').split(',').map((m) => m.trim()).filter(Boolean),
     embedDims: Number(e.GEMINI_EMBED_DIMS) || 768,
   },
   sync: {

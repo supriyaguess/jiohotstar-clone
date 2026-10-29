@@ -9,6 +9,8 @@ process.env.GEMINI_RETRY_BASE_MS = '1';
 process.env.GEMINI_EMBED_DIMS = '32';
 process.env.SYNC_TOKEN = 'sync-token-'.padEnd(40, 'x');
 process.env.SYNC_EMBED_BUDGET = '2';
+process.env.GEMINI_EMBED_CHUNK = '1';      // one text per request, so "quota hit midway" is testable
+process.env.GEMINI_EMBED_PACE_MS = '0';
 
 const SYNC_HEADER = { 'X-Sync-Token': process.env.SYNC_TOKEN };
 const DIMS = 32;
@@ -45,6 +47,7 @@ function fakeEmbedding(text) {
 const realFetch = globalThis.fetch;
 const calls = { gemini: 0, tmdb: 0 };
 let geminiFailStatus = null;
+let geminiFailAfter = null;   // succeed this many Gemini calls, then answer 429
 
 function installFakes() {
   globalThis.fetch = async (input) => {
@@ -71,7 +74,9 @@ function installGemini() {
     const url = new URL(String(input));
     if (url.hostname !== 'generativelanguage.googleapis.com') return inner(input, init);
     calls.gemini++;
-    if (geminiFailStatus) return new Response('{}', { status: geminiFailStatus });
+    if (geminiFailStatus || (geminiFailAfter !== null && calls.gemini > geminiFailAfter)) {
+      return new Response('{}', { status: geminiFailStatus || 429 });
+    }
     const { requests } = JSON.parse(init.body);
     return new Response(JSON.stringify({
       embeddings: requests.map((r) => ({ values: fakeEmbedding(r.content.parts[0].text) })),
@@ -96,7 +101,7 @@ beforeEach(async () => {
   await t.reset();
   await t.models.Title.deleteMany({});
   await t.models.SyncState.deleteMany({});
-  calls.gemini = 0; calls.tmdb = 0; geminiFailStatus = null;
+  calls.gemini = 0; calls.tmdb = 0; geminiFailStatus = null; geminiFailAfter = null;
   installFakes(); installGemini();
 });
 
@@ -184,6 +189,21 @@ describe('catalog sync', () => {
     assert.ok((await sync.syncStatus()).lastSync);
   });
 
+  it('keeps the chunks it already saved when the quota runs out midway', async () => {
+    geminiFailAfter = 1; // chunk size is 1: the first title embeds, the second hits 429
+    const run = await sync.syncCatalog({ budget: 50 });
+    assert.equal(run.embedded, 1);
+    assert.equal(run.partial, true);
+    assert.equal(run.deferred, 2);
+    assert.equal(await t.models.Title.countDocuments({ embeddedAt: { $exists: true } }), 1);
+    assert.equal((await sync.syncStatus()).lastSync, undefined);
+
+    geminiFailAfter = null;
+    const next = await sync.syncCatalog({ budget: 50 });
+    assert.equal(next.embedded, 2, 'only the missing two are embedded on the next run');
+    assert.ok((await sync.syncStatus()).lastSync);
+  });
+
   it('refuses to run twice at once', async () => {
     await t.redis.set('rag:sync:lock', 'someone-else', 'EX', 60);
     await assert.rejects(() => sync.syncCatalog(), { name: 'SyncBusyError' });
@@ -265,6 +285,15 @@ describe('GET /api/rag/search', () => {
     const res = await request(t.app).get('/api/rag/search').query({ q: 'something never searched before' }).set(auth(token));
     assert.equal(res.status, 503);
     assert.match(res.body.error, /busy/i);
+  });
+});
+
+describe('/ping', () => {
+  it('answers "pong" without touching the database or cache', async () => {
+    const res = await request(t.app).get('/ping');
+    assert.equal(res.status, 200);
+    assert.equal(res.text, 'pong');
+    assert.match(res.headers['cache-control'], /no-store/);
   });
 });
 

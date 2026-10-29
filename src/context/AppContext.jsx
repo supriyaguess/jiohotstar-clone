@@ -14,6 +14,7 @@ export function AppProvider({ children }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [authPromptOpen, setAuthPromptOpen] = useState(false);
+  const [authPromptReason, setAuthPromptReason] = useState('watch'); // 'watch' | 'chat': picks the prompt's wording
 
   // Restore the session from the refresh cookie on first load.
   useEffect(() => {
@@ -87,9 +88,9 @@ export function AppProvider({ children }) {
   }, []);
 
   // Runs `action` for signed-in users; guests get the "sign up to watch" prompt instead.
-  const requireAuth = useCallback((action) => {
+  const requireAuth = useCallback((action, reason = 'watch') => {
     if (user) action();
-    else setAuthPromptOpen(true);
+    else { setAuthPromptReason(reason); setAuthPromptOpen(true); }
   }, [user]);
   const closeAuthPrompt = useCallback(() => setAuthPromptOpen(false), []);
 
@@ -119,7 +120,7 @@ export function AppProvider({ children }) {
     <AppContext.Provider
       value={{
         user, authLoading, login, signup, logout, restoreSession, updateName, deleteAccount,
-        authPromptOpen, requireAuth, closeAuthPrompt,
+        authPromptOpen, authPromptReason, requireAuth, closeAuthPrompt,
         searchQuery, setSearchQuery, isSearchOpen, setIsSearchOpen,
         watchlist, toggleWatchlist, isInWatchlist,
       }}

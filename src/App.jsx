@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { AppProvider, useApp } from './context/AppContext';
 import Sidebar from './components/layout/Sidebar';
 import Footer from './components/layout/Footer';
+import ChatWidget from './components/chat/ChatWidget';
+import GuestChatButton from './components/chat/GuestChatButton';
 import AuthPrompt from './components/ui/AuthPrompt';
 import { PageLoader } from './components/ui/LoadingSpinner';
 
@@ -34,6 +36,7 @@ function RequireAuth({ children }) {
 }
 
 function AppShell() {
+  const { user } = useApp();
   return (
     <div className="min-h-screen bg-hotstar-bg">
       {/* Left Sidebar — full height, no top navbar */}
@@ -58,6 +61,9 @@ function AppShell() {
         </main>
         <Footer />
       </div>
+
+      {/* Signed-in users only; keyed so a new session never sees the previous chat */}
+      {user ? <ChatWidget key={user.id ?? user.email} /> : <GuestChatButton />}
     </div>
   );
 }

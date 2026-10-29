@@ -1,7 +1,7 @@
 import { env } from '../config/env.js';
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta';
-const BATCH = 50;
+const BATCH = Number(process.env.GEMINI_EMBED_CHUNK) || 20; // free-tier limits are per minute (tokens too), so keep requests small
 const RETRIES = 3;
 const retryBaseMs = () => Number(process.env.GEMINI_RETRY_BASE_MS) || 1000;
 
@@ -41,8 +41,21 @@ export function normalize(v) {
   return v.map((x) => x / norm);
 }
 
-async function post(path, body) {
+// Google's 429 body carries "retryDelay": "34s". Only that field is read; the body is never logged.
+async function retryDelayMs(res) {
+  try {
+    const info = (await res.json())?.error?.details?.find((d) => d.retryDelay);
+    return info ? Math.ceil(parseFloat(info.retryDelay) * 1000) || 0 : 0;
+  } catch { return 0; }
+}
+
+/**
+ * @param {{patient?: boolean}} opts patient = background work that can afford to wait out a per-minute
+ *   rate limit (waits ~20s, 40s, 80s). Interactive calls (a user's question) give up quickly instead.
+ */
+async function post(path, body, { patient = false } = {}) {
   let lastErr;
+  const base = retryBaseMs() * (patient ? 20 : 1);
   for (let attempt = 0; attempt <= RETRIES; attempt++) {
     let res;
     try {
@@ -54,15 +67,15 @@ async function post(path, body) {
       });
     } catch {
       lastErr = new GeminiError('Gemini unreachable', 504);
-      await sleep(retryBaseMs() * 2 ** attempt);
+      await sleep(base * 2 ** attempt);
       continue;
     }
     if (res.ok) return res.json();
     // Never put the response body in the error: it can echo request content.
     lastErr = new GeminiError(`Gemini returned ${res.status}`, res.status);
     if (res.status !== 429 && res.status < 500) throw lastErr; // 4xx other than 429 won't fix itself
-    const retryAfter = Number(res.headers.get('retry-after')) * 1000;
-    if (attempt < RETRIES) await sleep(retryAfter || retryBaseMs() * 2 ** attempt);
+    const wait = Number(res.headers.get('retry-after')) * 1000 || (await retryDelayMs(res)) || base * 2 ** attempt;
+    if (attempt < RETRIES) await sleep(Math.min(wait, 120_000));
   }
   throw lastErr;
 }
@@ -75,7 +88,7 @@ export async function embedTexts(texts, { kind = 'document', titles = [] } = {})
   for (let i = 0; i < texts.length; i += BATCH) {
     const requests = texts.slice(i, i + BATCH).map((text, j) =>
       buildEmbedRequest(text, { kind, title: titles[i + j], model, dims }));
-    const data = await post(`/models/${model}:batchEmbedContents`, { requests });
+    const data = await post(`/models/${model}:batchEmbedContents`, { requests }, { patient: kind === 'document' });
     const vectors = data.embeddings?.map((e) => e.values);
     if (!vectors || vectors.length !== requests.length || vectors.some((v) => !Array.isArray(v))) {
       throw new GeminiError('Unexpected embedding response', 502);
