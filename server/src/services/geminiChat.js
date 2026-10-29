@@ -4,8 +4,16 @@ import { decodeBody, parseSse } from '../chat/sse.js';
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta';
 const CALL_TIMEOUT_MS = 25_000;
+const HEADERS_TIMEOUT_MS = 12_000;      // a model that is silent this long is skipped when another one is available
+const QUOTA_COOLDOWN_MS = 5 * 60_000;   // 429: that model's free quota is spent, don't spend a call finding out again
+const FAILURE_COOLDOWN_MS = 60_000;      // 5xx / timeout
 const retryBaseMs = () => Number(process.env.GEMINI_RETRY_BASE_MS) || 500;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// model -> time until which it is skipped. Without this every request first burned a call on an exhausted model.
+const cooldowns = new Map();
+export const resetModelCooldowns = () => cooldowns.clear();
+const coolDown = (model, status) => cooldowns.set(model, Date.now() + (status === 429 ? QUOTA_COOLDOWN_MS : FAILURE_COOLDOWN_MS));
 
 async function openStream({ system, contents, tools, signal, retries, models, forceTool }) {
   const body = JSON.stringify({
@@ -18,12 +26,17 @@ async function openStream({ system, contents, tools, signal, retries, models, fo
     generationConfig: { maxOutputTokens: 1500, temperature: 0.6 },
   });
   let lastErr;
+  // Models in cooldown go last (never dropped: if all are cooling down, they are all still tried).
+  const now = Date.now();
+  models = [...models.filter((m) => (cooldowns.get(m) ?? 0) <= now), ...models.filter((m) => (cooldowns.get(m) ?? 0) > now)];
   // With fallback models available, one attempt per model: moving on beats waiting out an overloaded one.
   const attempts = models.length > 1 ? 1 : retries + 1;
-  for (const model of models) {
+  for (const [idx, model] of models.entries()) {
    for (let attempt = 0; attempt < attempts; attempt++) {
     if (signal.aborted) throw new GeminiError('aborted', 499);
-    const callSignal = AbortSignal.any([signal, AbortSignal.timeout(CALL_TIMEOUT_MS)]);
+    const headersGuard = new AbortController();
+    const guardTimer = idx < models.length - 1 ? setTimeout(() => headersGuard.abort(), HEADERS_TIMEOUT_MS) : null;
+    const callSignal = AbortSignal.any([signal, AbortSignal.timeout(CALL_TIMEOUT_MS), headersGuard.signal]);
     try {
       const res = await fetch(`${BASE}/models/${model}:streamGenerateContent?alt=sse`, {
         method: 'POST',
@@ -31,15 +44,18 @@ async function openStream({ system, contents, tools, signal, retries, models, fo
         body,
         signal: callSignal,
       });
-      if (res.ok && res.body) return { res, callSignal, model };
+      clearTimeout(guardTimer);
+      if (res.ok && res.body) { cooldowns.delete(model); return { res, callSignal, model }; }
       // The upstream body is never read or surfaced: it can echo request content.
       await res.body?.cancel().catch(() => {});
       lastErr = new GeminiError(`Gemini returned ${res.status}`, res.status);
       if (res.status !== 429 && res.status < 500) throw lastErr;
+      coolDown(model, res.status);
     } catch (err) {
+      clearTimeout(guardTimer);
       if (err instanceof GeminiError && err.status !== 429 && err.status < 500) throw err;
       if (signal.aborted) throw new GeminiError('aborted', 499);
-      if (!(err instanceof GeminiError)) lastErr = new GeminiError('Gemini unreachable', 504);
+      if (!(err instanceof GeminiError)) { lastErr = new GeminiError('Gemini unreachable', 504); coolDown(model, 504); }
     }
     if (attempt < attempts - 1) await sleep(Math.min(retryBaseMs() * 2 ** attempt, 2000));
    }

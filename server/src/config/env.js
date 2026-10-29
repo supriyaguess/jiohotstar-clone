@@ -36,6 +36,10 @@ export const env = {
     chatFallbackModels: (e.GEMINI_CHAT_FALLBACK_MODELS ?? 'gemini-3.5-flash-lite').split(',').map((m) => m.trim()).filter(Boolean),
     embedDims: Number(e.GEMINI_EMBED_DIMS) || 768,
   },
+  chat: {
+    // Look things up on the server before calling the model (one model call per question instead of two).
+    preRetrieval: (e.CHAT_PRE_RETRIEVAL ?? '1') !== '0',
+  },
   sync: {
     token: e.SYNC_TOKEN || '',                          // shared secret for the cron-triggered catalog sync
     embedBudget: Number(e.SYNC_EMBED_BUDGET) || 200,    // max embeddings per run (stays inside the free quota)

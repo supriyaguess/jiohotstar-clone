@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { BOT_NAME } from '../../constants';
 import { LogoMark } from '../ui/Logo';
 import UserAvatar from '../ui/UserAvatar';
@@ -40,12 +40,23 @@ function FormattedText({ text }) {
   )));
 }
 
+const SLOW_AFTER_MS = 8000;
+
 function TypingDots() {
+  // On free hosting the server can be asleep, which adds up to a minute: say so instead of looking frozen.
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setSlow(true), SLOW_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, []);
   return (
-    <span className="inline-flex items-center gap-1 py-1.5" role="status" aria-label={`${BOT_NAME} is typing`}>
-      {[0, 150, 300].map((d) => (
-        <span key={d} className="w-1.5 h-1.5 rounded-full bg-hotstar-gray animate-bounce" style={{ animationDelay: `${d}ms` }} />
-      ))}
+    <span role="status" aria-label={`${BOT_NAME} is typing`}>
+      <span className="inline-flex items-center gap-1 py-1.5">
+        {[0, 150, 300].map((d) => (
+          <span key={d} className="w-1.5 h-1.5 rounded-full bg-hotstar-gray animate-bounce" style={{ animationDelay: `${d}ms` }} />
+        ))}
+      </span>
+      {slow && <span className="block text-[11px] text-hotstar-gray mt-1">Still working on it. The server may be waking up, this can take a moment.</span>}
     </span>
   );
 }

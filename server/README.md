@@ -73,6 +73,13 @@ The catalog (movies and series from TMDB) is embedded with Gemini and stored in 
 
 **Search** embeds the question (cached in Redis for a week), runs Atlas `$vectorSearch` with optional filters (type, year, genre), and falls back to an in-process cosine scan on plain MongoDB or while a new index is still building.
 
+**Why a chat answer is fast (and what to check when it isn't)**
+- Greetings, thanks, goodbyes and "who are you" are answered locally (`chat/smalltalk.js`): instant, no model call, no quota.
+- For everything else the server looks things up first (`chat/router.js`: the user's list, sports fixtures, or a catalog search) and hands the results to the model as text, so a question costs **one** model call, not two. Switch off with `CHAT_PRE_RETRIEVAL=0`.
+- A model that answers 429 (free quota spent) is skipped for 5 minutes, and 5xx or a timeout for 1 minute (`services/geminiChat.js`), so requests go straight to a model that works. A silent model is abandoned after 12 s when a fallback exists.
+- The `done` event carries `{ model, rounds, ms }` and the server log has per-turn timings (no message content), which shows at a glance which model answered and how long it took.
+- Defaults: `GEMINI_CHAT_MODEL=gemini-2.5-flash-lite`, `GEMINI_CHAT_FALLBACK_MODELS=gemini-3.5-flash-lite` (comma-separated list). Free-tier quotas are per model per day, so a fallback is a separate pool.
+
 ## Production notes
 - `NODE_ENV=production`, HTTPS required (refresh cookie is `Secure; SameSite=None`).
 - Set `API_URL`, `FRONTEND_URL`, and add `${API_URL}/api/auth/google/callback` to the Google OAuth client.

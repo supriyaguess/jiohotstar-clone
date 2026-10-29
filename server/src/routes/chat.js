@@ -77,7 +77,7 @@ router.post('/',
       const result = await runTurn({ userId, message, lang, history, emit, signal: aborter.signal, log: req.log });
       if (result.ok && !aborter.signal.aborted) {
         await saveExchange(userId, message, result.text, result.titles);
-        emit('done', {});
+        emit('done', { model: result.model ?? null, rounds: result.rounds, ms: result.ms }); // timing for diagnostics, no content
       }
       ending = true;
       await finish();

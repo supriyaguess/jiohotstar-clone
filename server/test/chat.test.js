@@ -8,6 +8,7 @@ import { boot, creds } from './helpers.js';
 // Must be set before the app (and src/config/env.js) is imported by boot().
 process.env.GEMINI_API_KEY = 'test-gemini-key';
 process.env.GEMINI_RETRY_BASE_MS = '1';
+process.env.CHAT_PRE_RETRIEVAL = '0';   // existing tests drive the model-calls-a-tool flow; the new flow is tested below
 process.env.GEMINI_CHAT_MODEL = 'primary-model';
 process.env.GEMINI_CHAT_FALLBACK_MODELS = '';   // fallback behaviour is switched on per test below
 process.env.GEMINI_EMBED_DIMS = '4';
@@ -93,7 +94,12 @@ function installFakes() {
 // ── helpers ─────────────────────────────────────────────────────────────────────────────────────
 let t;
 let env;
-before(async () => { t = await boot(); env = (await import('../src/config/env.js')).env; });
+let resetModelCooldowns;
+before(async () => {
+  t = await boot();
+  env = (await import('../src/config/env.js')).env;
+  ({ resetModelCooldowns } = await import('../src/services/geminiChat.js'));
+});
 after(async () => { globalThis.fetch = realFetch; await t.close(); });
 beforeEach(async () => {
   await t.reset();
@@ -102,6 +108,7 @@ beforeEach(async () => {
   await t.models.WatchHistory.deleteMany({});
   script = []; defaultResp = reply(say('ok')); geminiReqs = []; tmdbPaths = []; embedCalls = 0; embedStatus = null; observedAbort = false;
   env.gemini.apiKey = 'test-gemini-key';
+  resetModelCooldowns();
   delete process.env.CHAT_DAILY_LIMIT; delete process.env.CHAT_HEARTBEAT_MS;
   installFakes();
 });
@@ -109,7 +116,7 @@ beforeEach(async () => {
 const auth = (token) => ({ Authorization: `Bearer ${token}` });
 const signup = async (n) => (await request(t.app).post('/api/auth/signup').send(creds(n))).body.accessToken;
 const uid = (token) => JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString()).sub;
-const chat = (token, body = { message: 'hi' }) => request(t.app).post('/api/chat').set(auth(token)).send(body);
+const chat = (token, body = { message: 'recommend something to watch' }) => request(t.app).post('/api/chat').set(auth(token)).send(body);
 
 function frames(res) {
   return String(res.text).split('\n\n').filter(Boolean).filter((f) => !f.startsWith(':')).map((f) => {
@@ -159,7 +166,7 @@ describe('streaming', () => {
   it('streams tokens in order, then done last, with the right headers', async () => {
     const token = await signup(3);
     script = [reply(say('Hel'), say('lo, '), say('नमस्ते '), say('friend'))];
-    const res = await chat(token, { message: 'hello', lang: 'en' });
+    const res = await chat(token, { message: 'recommend a movie', lang: 'en' });
     assert.equal(res.status, 200);
     assert.match(res.headers['content-type'], /^text\/event-stream; charset=utf-8/);
     assert.match(res.headers['cache-control'], /no-cache, no-transform/);
@@ -167,13 +174,15 @@ describe('streaming', () => {
     const fs = frames(res);
     assert.deepEqual(of(fs, 'token').map((f) => f.data.text).join(''), 'Hello, नमस्ते friend');
     assert.deepEqual(fs.map((f) => f.event), ['token', 'token', 'token', 'token', 'done']);
-    assert.deepEqual(fs.at(-1).data, {});
+    // `done` carries timing for diagnostics (which model answered, how many rounds, how long), never any content
+    assert.deepEqual(Object.keys(fs.at(-1).data).sort(), ['model', 'ms', 'rounds']);
+    assert.equal(fs.at(-1).data.model, 'primary-model');
     assert.equal(of(fs, 'error').length, 0);
   });
 
   it('sends the persona, tools and config upstream, and nothing identifying the user', async () => {
     const token = await signup(4);
-    await chat(token, { message: 'hello', lang: 'hi' });
+    await chat(token, { message: 'recommend a movie', lang: 'hi' });
     const [req] = geminiReqs;
     assert.equal(req._key, 'test-gemini-key');
     const sys = req.systemInstruction.parts[0].text;
@@ -199,7 +208,7 @@ describe('streaming', () => {
   it('no_lookup_needed lets greetings through without touching any data source', async () => {
     const token = await signup(65);
     script = [reply(call('no_lookup_needed')), reply(say('Hi! Ask me about movies, shows or sports.'))];
-    const fs = frames(await chat(token, { message: 'hello' }));
+    const fs = frames(await chat(token, { message: 'what do you think about the weather' }));
     assert.equal(fs.at(-1).event, 'done');
     assert.equal(of(fs, 'titles').length, 0);
     assert.equal(embedCalls, 0);
@@ -524,7 +533,7 @@ describe('limits', () => {
       const req = http.request({ port: server.address().port, path: '/api/chat', method: 'POST', headers: { ...auth(token), 'content-type': 'application/json' } });
       req.on('error', () => {});
       const gotHeaders = new Promise((r) => req.on('response', r));
-      req.end(JSON.stringify({ message: 'hello' }));
+      req.end(JSON.stringify({ message: 'recommend a movie' }));
       const res = await gotHeaders;
       assert.equal(res.statusCode, 200);
       assert.ok(await t.redis.get(`chat:lock:${uid(token)}`), 'lock held while streaming');
@@ -556,5 +565,117 @@ describe('privacy', () => {
     assert.ok(lines.length >= 2, 'requests are logged');
     for (const s of ['ZXQ', 'Orbit Heist', 'space crew', 'Bearer', token, 'UPSTREAM-SECRET-BODY', 'test-gemini-key']) assert.ok(!logs.includes(s), `log leaks ${s}`);
     assert.match(logs, /chat turn done/);
+  });
+});
+
+describe('small talk (answered without the model)', () => {
+  it('answers greetings, thanks and goodbyes at once, in the user\'s language, with zero Gemini calls', async () => {
+    const token = await signup(70);
+    const cases = [
+      ['hello', /I'm Filmy/],
+      ['Hi!', /I'm Filmy/],
+      ['kaise ho', /Main Filmy hoon/],
+      ['नमस्ते', /मैं Filmy हूँ/],
+      ['thanks!', /welcome/],
+      ['धन्यवाद', /कोई बात नहीं/],
+      ['bye', /Bye/],
+      ['who are you', /I can suggest/],
+    ];
+    for (const [message, expected] of cases) {
+      const fs = frames(await chat(token, { message }));
+      assert.deepEqual(fs.map((f) => f.event), ['token', 'done'], message);
+      assert.match(fs[0].data.text, expected, message);
+      assert.equal(fs[1].data.model, null);
+    }
+    assert.equal(geminiReqs.length, 0, 'no model call for any of them');
+    assert.equal(embedCalls, 0);
+    const { messages } = (await request(t.app).get('/api/chat/history').set(auth(token))).body;
+    assert.equal(messages.at(-2).text, 'who are you', 'small talk is still part of the conversation history');
+  });
+
+  it('does not mistake a real request that starts with a greeting for small talk', async () => {
+    const token = await signup(71);
+    await chat(token, { message: 'hello, suggest a thriller' });
+    await chat(token, { message: 'hi can you tell me about Dune' });
+    assert.equal(geminiReqs.length, 2);
+  });
+});
+
+describe('single model call (server-side lookups first)', () => {
+  beforeEach(() => { env.chat.preRetrieval = true; });
+  after(() => { env.chat.preRetrieval = false; });
+
+  it('searches the catalog first, hands the results to the model as text, and answers with ONE call', async () => {
+    const token = await signup(72);
+    await seedTitles();
+    script = [reply(say('Try **Orbit Heist** or **Paris in Spring**.'))];
+    const fs = frames(await chat(token, { message: 'space heist movie' }));
+    assert.equal(geminiReqs.length, 1, 'one model call instead of two');
+    assert.equal(geminiReqs[0].toolConfig.functionCallingConfig.mode, 'AUTO');
+    const userTurn = geminiReqs[0].contents.at(-1).parts[0].text;
+    assert.match(userTurn, /^space heist movie/);
+    assert.match(userTurn, /Lookup results/);
+    assert.match(userTurn, /Untrusted/);
+    assert.match(userTurn, /Orbit Heist/);
+    assert.deepEqual(of(fs, 'titles')[0].data.titles.map((x) => x.tmdbId), [1, 2]);
+    assert.equal(fs.at(-1).event, 'done');
+    assert.equal(embedCalls, 1);
+  });
+
+  it('keeps the original message (not the lookup text) in the conversation history', async () => {
+    const token = await signup(73);
+    await seedTitles();
+    script = [reply(say('Try **Orbit Heist**.'))];
+    await chat(token, { message: 'space heist movie' });
+    const { messages } = (await request(t.app).get('/api/chat/history').set(auth(token))).body;
+    assert.equal(messages[0].text, 'space heist movie');
+    assert.ok(!JSON.stringify(messages).includes('Lookup results'));
+  });
+
+  it('routes "my list" questions to the user\'s own data and skips the catalog search', async () => {
+    const token = await signup(74);
+    await t.models.WatchlistItem.create({ userId: uid(token), tmdbId: 1, mediaType: 'movie', title: 'Orbit Heist', posterPath: null });
+    script = [reply(say('You saved **Orbit Heist**.'))];
+    const fs = frames(await chat(token, { message: 'meri list mein kya hai?' }));
+    const userTurn = geminiReqs[0].contents.at(-1).parts[0].text;
+    assert.match(userTurn, /get_my_list/);
+    assert.match(userTurn, /Orbit Heist/);
+    assert.equal(embedCalls, 0, 'no catalog embedding for a list question');
+    assert.equal(geminiReqs.length, 1);
+    assert.equal(fs.at(-1).event, 'done');
+  });
+
+  it('the model may still call a tool when the lookup is not enough', async () => {
+    const token = await signup(75);
+    await seedTitles();
+    script = [reply(call('get_title_details', { tmdbId: 1, mediaType: 'movie' })), reply(say('**Orbit Heist** was directed by Leo Park.'))];
+    const fs = frames(await chat(token, { message: 'tell me about Orbit Heist' }));
+    assert.equal(geminiReqs.length, 2);
+    assert.equal(fs.at(-1).event, 'done');
+  });
+});
+
+describe('model cooldown', () => {
+  after(() => { env.gemini.chatFallbackModels = []; });
+
+  it('stops spending a call on a model that just reported its quota is spent', async () => {
+    env.gemini.chatFallbackModels = ['backup-model'];
+    const token = await signup(76);
+    script = [{ status: 429 }, reply(say('From the backup')), reply(say('Again from the backup'))];
+    await chat(token, { message: 'recommend a movie' });
+    await chat(token, { message: 'recommend another movie' });
+    assert.deepEqual(geminiReqs.map((r) => r._model), ['primary-model', 'backup-model', 'backup-model'],
+      'the second request goes straight to the model that works');
+  });
+
+  it('still tries every model when all of them are cooling down', async () => {
+    env.gemini.chatFallbackModels = ['backup-model'];
+    const token = await signup(77);
+    defaultResp = { status: 503 };
+    await chat(token, { message: 'recommend a movie' });
+    geminiReqs.length = 0;
+    const fs = frames(await chat(token, { message: 'recommend a movie' }));
+    assert.equal(geminiReqs.length, 2, 'both are still attempted');
+    assert.equal(fs[0].data.code, 'busy');
   });
 });
