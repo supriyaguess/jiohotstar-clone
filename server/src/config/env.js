@@ -30,10 +30,10 @@ export const env = {
   gemini: {
     apiKey: e.GEMINI_API_KEY || '',
     embedModel: e.GEMINI_EMBED_MODEL || 'gemini-embedding-2',
-    // Verified against the live API (function calling + streaming). Preview/"latest" aliases and the newest
-    // model were overloaded (503 / hangs) when tested, hence a cheap, stable default plus fallbacks.
-    chatModel: e.GEMINI_CHAT_MODEL || 'gemini-3.5-flash-lite',
-    chatFallbackModels: (e.GEMINI_CHAT_FALLBACK_MODELS ?? 'gemini-3.5-flash').split(',').map((m) => m.trim()).filter(Boolean),
+    // Verified against the live API (function calling + streaming). 2.5-flash-lite answered in ~3s with a generous
+    // free quota; the 3.5 models and the newest 3.8 were slow or overloaded (26-39s, 503s) when tested.
+    chatModel: e.GEMINI_CHAT_MODEL || 'gemini-2.5-flash-lite',
+    chatFallbackModels: (e.GEMINI_CHAT_FALLBACK_MODELS ?? 'gemini-3.5-flash-lite').split(',').map((m) => m.trim()).filter(Boolean),
     embedDims: Number(e.GEMINI_EMBED_DIMS) || 768,
   },
   sync: {

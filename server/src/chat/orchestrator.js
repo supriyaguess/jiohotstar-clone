@@ -3,6 +3,7 @@ import { streamGenerate } from '../services/geminiChat.js';
 import { systemPrompt } from './persona.js';
 import { TOOL_DECLARATIONS, executeTool } from './tools.js';
 import { pickMentioned } from './mentions.js';
+import { detectLang } from './language.js';
 
 export const MAX_ROUNDS = 4;
 const OVERALL_TIMEOUT_MS = 60_000;
@@ -26,7 +27,7 @@ export async function runTurn({ userId, message, lang, history, emit, signal, lo
   signal.addEventListener('abort', abort, { once: true });
 
   const contents = [...history, { role: 'user', parts: [{ text: message }] }];
-  const system = systemPrompt(lang);
+  const system = systemPrompt(lang === 'auto' ? detectLang(message) : lang);
   const candidates = new Map(); // "movie:603" -> title card data, in the order tools returned them
   const toolNames = [];
   let text = '';

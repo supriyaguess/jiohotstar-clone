@@ -217,6 +217,27 @@ describe('streaming', () => {
   });
 });
 
+describe('language detection', () => {
+  it('tells English, Roman-script Hinglish and Devanagari Hindi apart', async () => {
+    const { detectLang } = await import('../src/chat/language.js');
+    assert.equal(detectLang('Suggest me a good space thriller'), 'en');
+    assert.equal(detectLang('Tell me about the movie Hope'), 'en');
+    assert.equal(detectLang('ek achhi thriller movie batao'), 'hinglish');
+    assert.equal(detectLang('kuch accha dekhna hai, mood thoda light hai'), 'hinglish');
+    assert.equal(detectLang('Inception ke baare mein batao'), 'hinglish');
+    assert.equal(detectLang('मुझे कोई अच्छी फिल्म बताओ'), 'hi');
+  });
+
+  it('turns the detected language into an explicit instruction for the model', async () => {
+    const token = await signup(66);
+    await chat(token, { message: 'yaar koi mast crime series batao', lang: 'auto' });
+    assert.match(geminiReqs[0].systemInstruction.parts[0].text, /Roman-script Hinglish/);
+    geminiReqs.length = 0;
+    await chat(token, { message: 'recommend a comedy', lang: 'auto' });
+    assert.match(geminiReqs[0].systemInstruction.parts[0].text, /Answer in English/);
+  });
+});
+
 describe('tools', () => {
   it('search_catalog: titles come from tool results only; model-typed ids are never emitted', async () => {
     const token = await signup(6);
