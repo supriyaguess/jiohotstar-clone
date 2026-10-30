@@ -5,12 +5,29 @@ const Recognition = typeof window !== 'undefined'
   : undefined;
 
 const ERRORS = {
-  'not-allowed': 'Microphone permission is blocked. Allow it in your browser settings to talk to me.',
-  'service-not-allowed': 'Microphone permission is blocked. Allow it in your browser settings to talk to me.',
   'no-speech': 'I didn’t catch anything. Tap the mic and try again.',
   network: 'Voice recognition needs a network connection. Try typing instead.',
   'audio-capture': 'No microphone found.',
 };
+
+// "Not allowed" has several causes that need different fixes, so say which one it is.
+export async function explainBlockedMic() {
+  if (typeof window !== 'undefined' && window.isSecureContext === false) {
+    return 'Voice input needs a secure connection. Open the site with https:// (or on localhost).';
+  }
+  // The page's own Permissions-Policy header can switch the microphone off, whatever the user allows.
+  const policy = document.permissionsPolicy || document.featurePolicy; // newer and older Chrome name for the same API
+  if (policy && !policy.allowsFeature('microphone')) {
+    return 'Voice input is switched off by this site’s configuration, not by your browser. Please report it.';
+  }
+  try {
+    const status = await navigator.permissions.query({ name: 'microphone' });
+    if (status.state === 'denied') {
+      return 'The microphone is blocked for this site. Click the lock icon next to the address bar, set Microphone to Allow, then reload the page.';
+    }
+  } catch { /* the Permissions API doesn't cover the microphone everywhere */ }
+  return 'Microphone permission is needed. Allow it when your browser asks, or via the lock icon next to the address bar.';
+}
 
 /**
  * Browser speech-to-text. `onInterim(text)` streams the live transcript; `onFinal(text)` fires once
@@ -52,7 +69,8 @@ export function useSpeechRecognition({ lang, onInterim, onFinal }) {
       if (isFinal) finish();
     };
     rec.onerror = (e) => {
-      if (e.error !== 'aborted') setError(ERRORS[e.error] || 'Voice input failed. Try again or type instead.');
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') explainBlockedMic().then(setError);
+      else if (e.error !== 'aborted') setError(ERRORS[e.error] || 'Voice input failed. Try again or type instead.');
       if (e.error !== 'no-speech') transcript = '';
     };
     rec.onend = () => {
